@@ -1,0 +1,163 @@
+#! C:/Program Files/Nuke12.1v1/nuke-12.1.1.dll -nx
+version 12.1 v1
+define_window_layout_xml {<?xml version="1.0" encoding="UTF-8"?>
+<layout version="1.0">
+    <window x="0" y="0" w="1917" h="1008" screen="0">
+        <splitter orientation="1">
+            <split size="40"/>
+            <dock id="" hideTitles="1" activePageId="Toolbar.1">
+                <page id="Toolbar.1"/>
+            </dock>
+            <split size="1254" stretch="1"/>
+            <splitter orientation="2">
+                <split size="569"/>
+                <dock id="" activePageId="Viewer.1" focus="true">
+                    <page id="Viewer.1"/>
+                </dock>
+                <split size="401"/>
+                <dock id="" activePageId="DAG.1">
+                    <page id="DAG.1"/>
+                    <page id="Curve Editor.1"/>
+                    <page id="DopeSheet.1"/>
+                </dock>
+            </splitter>
+            <split size="615"/>
+            <dock id="" activePageId="Properties.1">
+                <page id="Properties.1"/>
+                <page id="uk.co.thefoundry.backgroundrenderview.1"/>
+            </dock>
+        </splitter>
+    </window>
+</layout>
+}
+Root {
+ inputs 0
+ name C:/Users/kenng/Desktop/blink/testing.nk
+ frame 2
+ format "2048 1556 0 0 2048 1556 1 2K_Super_35(full-ap)"
+ proxy_type scale
+ proxy_format "1024 778 0 0 1024 778 1 1K_Super_35(full-ap)"
+ colorManagement Nuke
+ workingSpaceLUT linear
+ monitorLut sRGB
+ int8Lut sRGB
+ int16Lut sRGB
+ logLut Cineon
+ floatLut linear
+}
+CheckerBoard2 {
+ inputs 0
+ name CheckerBoard1
+ xpos -557
+ ypos -286
+}
+set N9798a800 [stack 0]
+BlinkScript {
+ recompileCount 1
+ ProgramGroup 1
+ KernelDescription "2 \"deSatuation2D\" iterate pixelWise 64d7ebc11473ece48075bed30dcb37496437cc28436a3fca167436447d95eae3 2 \"src\" Read Ranged2D \"dst\" Write Point 0 0 3 \"srcrangeMin\" Int 2 1 AAAAAAAAAAA= \"srcrangeMax\" Int 2 1 AAAAAAAAAAA= \"coefficients\" Float 3 1 AAAAAAAAAAAAAAAAAAAAAA=="
+ kernelSource "kernel deSatuation2D : public ImageComputationKernel<ePixelWise>\n\{\n\n  //different than default blink kernal, this version is write on eAccessRanged2D for trainning\n\n  Image<eRead, eAccessRanged2D, eEdgeClamped> src;\n  Image<eWrite, eAccessPoint> dst;\n\nlocal:\n  float3 coefficients;\n\n  void init() \{\n\n    coefficients.x = 0.2126f;\n    coefficients.y = 0.7152f;\n    coefficients.z = 0.0722f;\n\n    src.setRange(-src.bounds.width()/2, -src.bounds.height()/2, \n                src.bounds.width()/2, src.bounds.height()/2);\n  \}\n  \n  void process() \{\n\n    float4 input = src(0, 0);\n    float3 luma = rgb_to_grey(input);\n\n    dst() = float4(luma.x, luma.y, luma.z, src(0,0,3));  //src(0,0,3) = the forth channel (rgb\[a])\n  \}\n\n  float3 rgb_to_grey(float4 input)\{\n    float luma = input.x * coefficients.x\n        + input.y * coefficients.y\n        + input.z * coefficients.z;\n    return luma;\n  \}\n\};"
+ useGPUIfAvailable false
+ vectorize false
+ rebuild ""
+ rebuild_finalise ""
+ name BlinkScript9
+ xpos -557
+ ypos -137
+}
+BlinkScript {
+ recompileCount 3
+ ProgramGroup 1
+ KernelDescription "2 \"Gaussian2D\" iterate componentWise 5e3b4716ffcd4cc0a6951cd5017daeb84ca3ebf165c0ff6ab1d69d62ee944e66 2 \"src\" Read Ranged2D \"dst\" Write Point 2 \"Radius\" Int 1 HgAAAA== \"Sigma\" Float 1 AABIQg== 2 \"Radius\" 1 1 \"sigma\" 1 1 2 \"srcrangeMin\" Int 2 1 AAAAAAAAAAA= \"srcrangeMax\" Int 2 1 AAAAAAAAAAA="
+ kernelSource "kernel Gaussian2D : public ImageComputationKernel<eComponentWise>\n\{\n  Image<eRead, eAccessRanged2D, eEdgeClamped> src;\n  Image<eWrite> dst;\n\nparam:\n  int Radius;  \n  float sigma;\n  \n  void define() \{\n    defineParam(Radius, \"Radius\", 30); \n    defineParam(sigma, \"Sigma\", 50.0f); \n  \}\n\n  void init() \{\n    src.setRange(-Radius, -Radius, Radius, Radius);\n  \}\n\n  void process() \{\n    float _weightSum = 0.0f;\n    float _sum = 0.0f;\n    float _gaussfactor;\n\n    \n\n    for (int j = -Radius; j <= Radius; j++)\n      for (int i = -Radius; i <= Radius; i++)\{\n        _gaussfactor = 1/(2*PI*sigma*sigma)*exp(-(i*i+j*j)/(2*sigma*sigma));\n        _sum += src(i, j) * _gaussfactor;\n        _weightSum += _gaussfactor;\n      \};\n        \n    dst() = _sum / _weightSum;\n  \}\n\};"
+ rebuild ""
+ Gaussian2D_Radius 5
+ Gaussian2D_Sigma 0.1
+ rebuild_finalise ""
+ name BlinkScript8
+ xpos -557
+ ypos -57
+}
+set Ne2b59c00 [stack 0]
+BlinkScript {
+ recompileCount 1
+ ProgramGroup 1
+ KernelDescription "2 \"sobelintensitymagnitude2D\" iterate componentWise e3b4f5c3b10913062f0908614438ad814342a4a5489cadcefd04f639eae0bdb7 2 \"src\" Read Ranged2D \"dst\" Write Point 2 \"Radius\" Int 1 AQAAAA== \"export angle as result\" Bool 1 AA== 2 \"radius\" 1 1 \"findangle\" 1 1 2 \"srcrangeMin\" Int 2 1 AAAAAAAAAAA= \"srcrangeMax\" Int 2 1 AAAAAAAAAAA="
+ kernelSource "kernel sobelintensitymagnitude2D : public ImageComputationKernel<eComponentWise>\n\{\n  Image<eRead, eAccessRanged2D, eEdgeClamped> src;\n  Image<eWrite> dst;\n\nparam:\n  int radius = 1; \n  bool findangle;\n  \n  \n\n  void define() \{\n    defineParam(radius, \"Radius\", 1); \n    defineParam(findangle, \"export angle as result\", false);\n  \}\n\n  void init() \{\n    src.setRange(-radius, -radius, radius, radius);\n  \};\n\n  void process() \{\n    float xSobel\[3]\[3] = \{\n        \{47.0f, 0.0f, -47.0f\},\n        \{162.0f, 0.0f, -162.0f\},\n        \{47.0f, 0.0f, -47.0f\}\n    \};\n\n    float ySobel\[3]\[3] = \{\n        \{47.0f, 162.0f, 47.0f\},\n        \{0.0f, 0.0f, 0.0f\},\n        \{-47.0f, -162.0f, -47.0f\}\n    \};\n\n    float xSum;\n    float ySum;\n\n    for( int j = -radius; j <= radius; j++)\n      for (int i = -radius; i <= radius; i++)\{\n          xSum += src(i, j) * xSobel\[i+radius]\[j+radius];\n          ySum += src(i, j) * ySobel\[i+radius]\[j+radius];\n      \};\n\n    xSum /= 9;\n    ySum /= 9;\n\n    float gradient = sqrt(xSum*xSum+ySum*ySum);\n    float angle = atan(ySum/xSum);\n\n    if(findangle == false)\n      dst() = gradient;\n    else\n      dst() = angle;\n  \}\n\};"
+ useGPUIfAvailable false
+ vectorize false
+ rebuild ""
+ "sobelintensitymagnitude2D_export angle as result" true
+ rebuild_finalise ""
+ name BlinkScript7
+ xpos -557
+ ypos 28
+}
+push $Ne2b59c00
+BlinkScript {
+ recompileCount 1
+ ProgramGroup 1
+ KernelDescription "2 \"sobelintensitymagnitude2D\" iterate componentWise e3b4f5c3b10913062f0908614438ad814342a4a5489cadcefd04f639eae0bdb7 2 \"src\" Read Ranged2D \"dst\" Write Point 2 \"Radius\" Int 1 AQAAAA== \"export angle as result\" Bool 1 AA== 2 \"radius\" 1 1 \"findangle\" 1 1 2 \"srcrangeMin\" Int 2 1 AAAAAAAAAAA= \"srcrangeMax\" Int 2 1 AAAAAAAAAAA="
+ kernelSource "kernel sobelintensitymagnitude2D : public ImageComputationKernel<eComponentWise>\n\{\n  Image<eRead, eAccessRanged2D, eEdgeClamped> src;\n  Image<eWrite> dst;\n\nparam:\n  int radius = 1; \n  bool findangle;\n  \n  \n\n  void define() \{\n    defineParam(radius, \"Radius\", 1); \n    defineParam(findangle, \"export angle as result\", false);\n  \}\n\n  void init() \{\n    src.setRange(-radius, -radius, radius, radius);\n  \};\n\n  void process() \{\n    float xSobel\[3]\[3] = \{\n        \{47.0f, 0.0f, -47.0f\},\n        \{162.0f, 0.0f, -162.0f\},\n        \{47.0f, 0.0f, -47.0f\}\n    \};\n\n    float ySobel\[3]\[3] = \{\n        \{47.0f, 162.0f, 47.0f\},\n        \{0.0f, 0.0f, 0.0f\},\n        \{-47.0f, -162.0f, -47.0f\}\n    \};\n\n    float xSum;\n    float ySum;\n\n    for( int j = -radius; j <= radius; j++)\n      for (int i = -radius; i <= radius; i++)\{\n          xSum += src(i, j) * xSobel\[i+radius]\[j+radius];\n          ySum += src(i, j) * ySobel\[i+radius]\[j+radius];\n      \};\n\n    xSum /= 9;\n    ySum /= 9;\n\n    float gradient = sqrt(xSum*xSum+ySum*ySum);\n    float angle = atan(ySum/xSum);\n\n    if(findangle == false)\n      dst() = gradient;\n    else\n      dst() = angle;\n  \}\n\};"
+ useGPUIfAvailable false
+ vectorize false
+ rebuild ""
+ rebuild_finalise ""
+ name BlinkScript6
+ xpos -422
+ ypos 20
+}
+BlinkScript {
+ inputs 2
+ recompileCount 1
+ ProgramGroup 1
+ KernelDescription "2 \"nonmaximusupKernel\" iterate componentWise 1edcf5d51c705b1bfed15439f1656539a6afcd025d6e1e3cb240e4741de1455b 3 \"intensity\" Read Ranged2D \"angle\" Read Ranged2D \"dst\" Write Point 0 0 5 \"intensityrangeMin\" Int 2 1 AAAAAAAAAAA= \"intensityrangeMax\" Int 2 1 AAAAAAAAAAA= \"anglerangeMin\" Int 2 1 AAAAAAAAAAA= \"anglerangeMax\" Int 2 1 AAAAAAAAAAA= \"radius\" Int 1 1 AAAAAA=="
+ kernelSource "//Warning: connecting a large image to the filter input will cause the kernel to run very slowly!\n//If running on a GPU connected to a display, this will cause problems if the time taken to \n//execute the kernel is longer than your operating system allows. Use with caution!\nkernel nonmaximusupKernel : public ImageComputationKernel<eComponentWise>\n\{\n    Image<eRead, eAccessRanged2D, eEdgeClamped> intensity;\n    Image<eRead, eAccessRanged2D, eEdgeClamped> angle;  \n    Image<eWrite> dst;\n\nlocal:\n    int radius;\n\n    void init()\{\n        radius = 1;\n        intensity.setRange(-radius, -radius, radius, radius);\n        angle.setRange(-radius, -radius, radius, radius);\n  \}\n\n    void process() \{\n        float pixelangle = angle(0, 0);\n        float x,y;\n        pixelangle *= 180/PI;\n\n        if (pixelangle < 0 )\n            pixelangle+=180;\n        \n        if (pixelangle < 22.5 || pixelangle > 157.5)\{\n            x = intensity(0, 1);\n            y = intensity(0, -1);\n            \} \n        else if (pixelangle >= 22.5 && pixelangle < 67.5)\{\n            x = intensity(1, -1);\n            y = intensity(-1, 1);\n            \}\n        else if (pixelangle >= 67.5 && pixelangle < 112.5)\{\n            x = intensity(1, 0);\n            y = intensity(-1, 0);\n            \}\n        else if (pixelangle >= 112.5 && pixelangle < 157.5)\{\n            x = intensity(-1, -1);\n            y = intensity(1, 1);\n            \}\n        \n        if (intensity(0,0) >= x && intensity(0,0) >= y)\n            dst() = intensity(0,0);\n        else\n            dst() = 0;\n    \}\n\};"
+ useGPUIfAvailable false
+ vectorize false
+ rebuild ""
+ rebuild_finalise ""
+ name BlinkScript5
+ xpos -557
+ ypos 107
+}
+BlinkScript {
+ recompileCount 1
+ ProgramGroup 1
+ KernelDescription "2 \"doublethresholdKernel\" iterate componentWise 3d9737118ed25fa8d1a1a4c52bad59efd70beeb9149d267edcd7a29e0759e6d1 2 \"src\" Read Ranged2D \"dst\" Write Point 5 \"High threshold\" Float 1 AACgQQ== \"Low threshold\" Float 1 AACgQA== \"Strong pixels value\" Float 1 AACAPw== \"Weak pixels value\" Float 1 zczMPQ== \"non-relevant pixels value \" Float 1 AAAAAA== 5 \"highthres\" 1 1 \"lowthres\" 1 1 \"strongpixel\" 1 1 \"weakpixel\" 1 1 \"nonrel\" 1 1 3 \"srcrangeMin\" Int 2 1 AAAAAAAAAAA= \"srcrangeMax\" Int 2 1 AAAAAAAAAAA= \"radius\" Int 1 1 AAAAAA=="
+ kernelSource "kernel doublethresholdKernel : public ImageComputationKernel<eComponentWise>\n\{\n    Image<eRead, eAccessRanged2D, eEdgeClamped> src;\n    Image<eWrite> dst;\n\n\nparam:\n    float highthres;\n    float lowthres;\n    float strongpixel;\n    float weakpixel;\n    float nonrel;\n\n\nlocal:\n    int radius;\n\n    void define() \{\n        defineParam(highthres, \"High threshold\", 20.0f); \n        defineParam(lowthres, \"Low threshold\", 5.0f);\n        defineParam(strongpixel, \"Strong pixels value\", 1.0f);\n        defineParam(weakpixel, \"Weak pixels value\", 0.1f);\n        defineParam(nonrel, \"non-relevant pixels value \", 0.0f);\n    \}\n\n\n\n    void init()\{\n    \}\n\n    void process() \{\n        if (src(0,0) >= highthres)\n            dst() = strongpixel;\n        else if (src(0,0) < lowthres)\n            dst() = nonrel;\n        else\n            dst() = weakpixel;\n    \};\n\};"
+ useGPUIfAvailable false
+ vectorize false
+ rebuild ""
+ "doublethresholdKernel_High threshold" 10
+ "doublethresholdKernel_Low threshold" 0.3
+ rebuild_finalise ""
+ name BlinkScript3
+ xpos -557
+ ypos 165
+}
+BlinkScript {
+ recompileCount 1
+ ProgramGroup 1
+ KernelDescription "2 \"hysteresisKernel\" iterate componentWise 02c419dd414e8ffcdaac1c4100e68f77a41f76e732873678a1840b61248d4fc0 2 \"src\" Read Ranged2D \"dst\" Write Point 5 \"highthres\" Float 1 AAAAAA== \"lowthres\" Float 1 AAAAAA== \"Strong pixels value\" Float 1 AACAPw== \"Weak pixels value\" Float 1 zczMPQ== \"non-relevant pixels value \" Float 1 AAAAAA== 5 \"highthres\" 1 1 \"lowthres\" 1 1 \"strongpixel\" 1 1 \"weakpixel\" 1 1 \"nonrel\" 1 1 3 \"srcrangeMin\" Int 2 1 AAAAAAAAAAA= \"srcrangeMax\" Int 2 1 AAAAAAAAAAA= \"radius\" Int 1 1 AAAAAA=="
+ kernelSource "kernel hysteresisKernel : public ImageComputationKernel<eComponentWise>\n\{\n    Image<eRead, eAccessRanged2D, eEdgeClamped> src;\n    Image<eWrite> dst;\n\n\nparam:\n    float highthres;\n    float lowthres;\n    float strongpixel;\n    float weakpixel;\n    float nonrel;\n\nlocal:\n    int radius;\n\n    void define() \{\n        defineParam(strongpixel, \"Strong pixels value\", 1.0f);\n        defineParam(weakpixel, \"Weak pixels value\", 0.1f);\n        defineParam(nonrel, \"non-relevant pixels value \", 0.0f);\n    \}\n\n\n\n    void init()\{\n        radius = 1;\n        src.setRange(-radius, -radius, radius, radius);\n    \}\n\n    void process() \{\n\n        bool strongnel = false;\n\n        if (src(0,0) != weakpixel)\{\n            dst() = src(0,0);\n            return;\n            \};\n\n        for( int j = -radius; j <= radius; j++)\n            for (int i = -radius; i <= radius; i++)\{\n                if (src(i,j) == strongpixel)\{\n                    strongnel=true;\n                    break;\n                \};\n            \};\n        \n        if (strongnel == true)\n            dst() = strongpixel;\n        else\n            dst() = nonrel;\n\n    \};\n\};"
+ useGPUIfAvailable false
+ vectorize false
+ rebuild ""
+ rebuild_finalise ""
+ name BlinkScript4
+ xpos -557
+ ypos 221
+}
+push $N9798a800
+push 0
+Viewer {
+ inputs 3
+ frame_range 1-100
+ input_number 2
+ colour_sample_bbox {0.1279296875 -0.125 0.12890625 -0.1240234375}
+ name Viewer1
+ selected true
+ xpos -447
+ ypos 229
+}
